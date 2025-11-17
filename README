@@ -1,1 +1,182 @@
-sdsd
+# Jira Validation Tool
+
+## Overview
+
+The Jira Validation Tool is designed to automatically validate Jira issues against Change Request (CRQ) requirements, with a focus on testing completion verification. This tool helps ensure that Jira issues meet specific criteria before being considered valid for deployment.
+
+## Flow Chart
+
+![Validation Process Diagram](media/image1.png)
+
+## Validation Conditions
+
+### 1. Name Matching Condition
+**Purpose**: Verify the Jira issue relates to the CRQ description.
+- Configurable similarity threshold (typically 50-70%)
+
+### 2. User Story Condition
+**Purpose**: Ensure the Jira issue has a proper description.
+**Check**:
+- Description exists and contains non-whitespace text
+
+### 3. Status Transition Condition
+**Purpose**: Verify testing completion through status changes.
+
+**Status Pattern Matching** (via regex patterns):
+- **Testing Statuses**: Patterns matching "Test", "Testing", "QA", "UAT", etc.
+- **Done Statuses**: Patterns matching "Done", "Completed", "Resolved", etc.
+- **Ready Statuses**: Patterns matching "Ready", "Approved", etc.
+
+**Validation Logic**:
+1. **Transition Check**: Look for transitions from testing status → done/ready status
+2. **Current Status Check**: If current status is both testing and done/ready
+3. **Testing Phase Tracking**: Track when issue enters testing phase
+
+### 4. Comment Condition
+**Purpose**: Verify testing completion through comments.
+
+**Comment Pattern Matching**:
+- Patterns like "testing done", "test completed", "QA passed", etc.
+
+**Time Validation**:
+- If `scheduled_start` provided: Comment must be created **before or equal to** scheduled start
+- If no `scheduled_start`: Any matching comment counts
+
+### 5. Subtask Testing Condition
+**Purpose**: Check if testing was done in subtasks.
+
+**Criteria**:
+- Subtask summary contains "test", "testing", or "staging"
+- Subtask status contains "done"
+- At least one matching subtask satisfies both conditions
+
+### 6. No Testing Needed Condition
+**Purpose**: Identify issues that explicitly don't require testing.
+
+**Pattern Matching**:
+- Patterns like "no testing needed", "testing not required", etc.
+
+**Location Checks**:
+- Issue description
+- Comments (with time validation against scheduled_start)
+
+## Validation Rules
+
+**For a Jira issue to be considered VALID, it must satisfy ALL of these:**
+
+1. **✅ The issue actually matches the CRQ description** (name_condition)
+2. **✅ The issue has a proper description/user story** (user_story_condition)
+3. **✅ The issue does NOT say "no testing needed"** (NOT no_testing_needed)
+4. **✅ AND it must show testing completion through AT LEAST ONE of these:**
+   - **Option A**: Status moved from testing → done (status_condition)
+   - **Option B**: Has testing completion comment with proper timing (comment_condition)
+   - **Option C**: Has testing subtask that's completed (subtask_testing_done)
+
+## Special Cases
+
+### 1. No Testing Needed Issues
+- **Result**: "NEED TO CHECK" (not valid, requires manual verification)
+- **Override**: All other conditions ignored when no_testing_needed = True
+
+### 2. Subtask Handling
+
+**When issue is a subtask:**
+1. First check if subtask has "no testing needed" pattern
+2. If no pattern found, validate subtask's status and comments only
+3. If subtask passes (status OR comment valid), use subtask for final validation
+4. If subtask fails, fetch and validate parent issue
+
+**Subtask Validation**:
+- Only checks status_condition and comment_condition
+- Name and user story conditions computed but not required for subtask-only validation
+
+## Pattern Reference Tables
+
+### Comment Patterns
+```
+testing done              ready for deploy
+test done                 ready for deployment
+testing completed         ready for release
+test completed            ready for production
+testing passed            all tests passed
+test passed               all tests completed
+qa done                   test cycle completed
+qa completed              testing cycle completed
+qa passed                 testing signed off
+quality assurance done    test signed off
+uat done                  qa signed off
+uat completed             regression testing done
+uat passed                regression test done
+user acceptance testing done
+verification done         smoke testing done
+verification completed    smoke test done
+verified successfully     integration testing done
+testing approved          integration test done
+test approved
+qa approved
+```
+
+### No Testing Needed Patterns
+```
+no testing needed         configuration only
+no test needed            minor change
+testing not needed        cosmetic change
+test not needed           text change only
+no testing required       testing exempt
+no test required          test exempt
+testing not required      exempt from testing
+test not required         low risk
+documentation only        minimal risk
+config change only        no risk
+```
+
+### Status Transition Patterns
+
+**Testing Status Keywords:**
+```
+test
+testing
+qa
+quality
+uat
+user acceptance
+verification
+validation
+staging
+```
+
+**Done Status Keywords:**
+```
+done
+completed
+finished
+resolved
+closed
+passed
+approved
+verified
+accepted
+```
+
+**Ready Status Keywords:**
+```
+ready
+approved
+accepted
+verified
+passed
+```
+
+## Usage
+
+This tool can be integrated into your CI/CD pipeline or used as a standalone validation service to ensure Jira issues meet the required criteria before deployment.
+
+## Configuration
+
+The tool supports configuration of:
+- Name matching similarity threshold
+- Custom pattern matching rules
+- Status transition mappings
+- Time validation rules
+
+For detailed implementation and configuration instructions, refer to the source code documentation.
