@@ -1,1 +1,111 @@
+**Jira Validation Tool**
+
+
+
+**1. Name Matching Condition**
+
+**Purpose**: Verify the Jira issue relates to the CRQ description. (configurable, typically 50-70)
+
+**2. User Story Condition**
+
+**Purpose**: Ensure the Jira issue has a proper description.
+
+**Check**:
+
+- Description exists and contains non-whitespace text
+
+**3. Status Transition Condition**
+
+**Purpose**: Verify testing completion through status changes.
+
+**Status Pattern Matching** (via regex patterns):
+
+- **Testing Statuses** (TEST\_STATUS\_RE):
+  - Patterns matching "Test", "Testing", "QA", "UAT", etc.
+- **Done Statuses** (DONE\_STATUS\_RE):
+  - Patterns matching "Done", "Completed", "Resolved", etc.
+- **Ready Statuses** (READY\_STATUS\_RE):
+  - Patterns matching "Ready", "Approved", etc.
+
+**Validation Logic**:
+
+1. **Transition Check**: Look for transitions from testing status → done/ready status
+1. **Current Status Check**: If current status is both testing and done/ready
+1. **Testing Phase Tracking**: Track when issue enters testing phase
+
+**4. Comment Condition**
+
+**Purpose**: Verify testing completion through comments.
+
+**Comment Pattern Matching**
+
+- Patterns like "testing done", "test completed", "QA passed", etc.
+
+**Time Validation**:
+
+- If scheduled\_start provided: Comment must be created **before or equal to** scheduled start
+- If no scheduled\_start: Any matching comment counts
+
+**5. Subtask Testing Condition**
+
+**Purpose**: Check if testing was done in subtasks.
+
+**Criteria**:
+
+- Subtask summary contains "test", "testing", or "staging"
+- Subtask status contains "done"
+- At least one matching subtask satisfies both conditions
+
+**6. No Testing Needed Condition**
+
+**Purpose**: Identify issues that explicitly don't require testing.
+
+**Pattern Matching** (NO\_TESTING\_NEEDED\_PATTERNS):
+
+- Patterns like "no testing needed", "testing not required", etc.
+
+**Location Checks**:
+
+- Issue description
+- Comments (with time validation against scheduled\_start)
+
+**Validation Rules**
+
+**For a Jira issue to be considered VALID, it must satisfy ALL of these:**
+
+1. **✅ The issue actually matches the CRQ description (name\_condition)**
+1. **✅ The issue has a proper description/user story (user\_story\_condition)**
+1. **✅ The issue does NOT say "no testing needed" (NOT no\_testing\_needed)**
+1. **✅ AND it must show testing completion through AT LEAST ONE of these:**
+   1. **Option A: Status moved from testing → done (status\_condition)**
+   1. **Option B: Has testing completion comment with proper timing (comment\_condition)**
+   1. **Option C: Has testing subtask that's completed (subtask\_testing\_done)**
+
+**Special Cases**
+
+**1. No Testing Needed Issues**
+
+- **Result**: "NEED TO CHECK" (not valid, requires manual verification)
+- **Override**: All other conditions ignored when no\_testing\_needed = True
+
+**2. Subtask Handling**
+
+**When issue is a subtask:**
+
+1. First check if subtask has "no testing needed" pattern
+1. If no pattern found, validate subtask's status and comments only
+1. If subtask passes (status OR comment valid), use subtask for final validation
+1. If subtask fails, fetch and validate parent issue
+
+**Subtask Validation**:
+
+- Only checks status\_condition and comment\_condition
+- Name and user story conditions computed but not required for subtask-only validation
+
+|<p>**Comment Patterns**</p><p></p>|<p>**No Testing Needed Patterns**</p><p></p>|<p>**Status Transition Patterns**</p><p></p>|
+| :- | :- | :- |
+|<p>testing done</p><p>test done</p><p>testing completed</p><p>test completed</p><p>testing passed</p><p>test passed</p><p>qa done</p><p>qa completed</p><p>qa passed</p><p>quality assurance done</p><p>uat done</p><p>uat completed</p><p>uat passed</p><p>user acceptance testing done</p><p>verification done</p><p>verification completed</p><p>verified successfully</p><p>testing approved</p><p>test approved</p><p>qa approved</p><p>ready for deploy</p><p>ready for deployment</p><p>ready for release</p><p>ready for production</p><p>all tests passed</p><p>all tests completed</p><p>test cycle completed</p><p>testing cycle completed</p><p>testing signed off</p><p>test signed off</p><p>qa signed off</p><p>regression testing done</p><p>regression test done</p><p>smoke testing done</p><p>smoke test done</p><p>integration testing done</p><p>integration test done</p>|<p>no testing needed</p><p>no test needed</p><p>testing not needed</p><p>test not needed</p><p>no testing required</p><p>no test required</p><p>testing not required</p><p>test not required</p><p>documentation only</p><p>config change only</p><p>configuration only</p><p>minor change</p><p>cosmetic change</p><p>text change only</p><p>testing exempt</p><p>test exempt</p><p>exempt from testing</p><p>low risk</p><p>minimal risk</p><p>no risk</p>|<p>**Testing Status:**</p><p>test</p><p>testing</p><p>qa</p><p>quality</p><p>uat</p><p>user acceptance</p><p>verification</p><p>validation</p><p>staging</p><p>**Done Status Keywords:** </p><p>done</p><p>completed</p><p>finished</p><p>resolved</p><p>closed</p><p>passed</p><p>approved</p><p>verified</p><p>accepted</p><p>**Ready Status Keywords:**</p><p>text</p><p>ready</p><p>approved</p><p>accepted</p><p>verified</p><p>passed</p><p></p>|
+
+
+![C2 General](Aspose.Words.73d2b07f-c051-4337-a2ca-997a0aa695c9.003.png)
 
